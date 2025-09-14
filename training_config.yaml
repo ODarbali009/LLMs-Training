@@ -1,0 +1,86 @@
+# Configuration for Darija LLM Fine-tuning Pipeline
+
+# Environment Configuration
+environment:
+  hf_token: ""
+  wandb_key: ""
+
+# Model Configuration
+model:
+  base_model_id: "meta-llama/Llama-3.1-8B-Instruct"
+  tokenizer_hub: "meta-llama/Llama-3.1-8B-Instruct"
+  torch_dtype: "bfloat16"
+  max_seq_length: 1024
+  attn_implementation: "flash_attention_2"
+
+stages: ["embed", "lora"]
+
+# Stage-specific configurations
+stage_configs:
+  embed:
+    output_dir: "./results_llama3_8b_biling_dr_en/"
+    model_name: "Llama-3_8b-darjia-English-biling-embed"
+    datasets:
+      english: "JeanKaddour/minipile"
+      instruct_en: "teknium/openhermes"
+      reason_en: "mlabonne/natural_reasoning-formatted"
+
+    training_args:
+      # learning_rate: 1.0e-4
+      # learning_rate: 2.0e-6 # T
+      learning_rate: 1.0e-5 # B
+      # learning_rate: 0.000002
+      num_train_epochs: 1
+      per_device_train_batch_size: 8
+      save_steps: 25000
+      # packing: true
+      packing: false
+      dataset_num_proc: 32
+    
+    
+  lora:
+    phase: "phase_2"  # Phase of the training, can be used to differentiate between different runs
+
+    output_dir: "./results_llama3_8b_instruct_completloss_lora_embed_tbk/"
+    model_name: "Llama-3_3b-darjia-lora-sft_completloss"
+    datasets:
+
+      darija_instruct: "MBZUAI-Paris/Darija-SFT-Mixture"
+      english_instruct: "teknium/GPT4-LLM-Cleaned"
+      ar_reason: "Omartificial-Intelligence-Space/Arabic_Reasoning_Dataset"
+      reason_en: "mlabonne/natural_reasoning-formatted"
+
+
+    lora_config:
+      lora_alpha: 128
+      lora_dropout: 0.05
+      r: 256
+      bias: "none"
+      target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+      train_embed: true # train the mebedding layers also
+      # train_embed: false
+    training_args:
+      # learning_rate: 3.0e-5
+      # learning_rate: 2.0e-5 # T
+      learning_rate: 3.0e-5 # B
+      # learning_rate: 0.00001
+      num_train_epochs: 2
+      per_device_train_batch_size: 4
+      save_steps: 25000
+      packing: false
+      dataset_num_proc: 8
+
+# Common training arguments (applied to all stages)
+common_training_args:
+  optim: "adamw_bnb_8bit"
+  gradient_accumulation_steps: 2
+  bf16: true
+  log_level: "debug"
+  save_strategy: "steps"
+  logging_steps: 1
+  warmup_steps: 3
+  lr_scheduler_type: "cosine"
+  # push_to_hub: true  # Push the model to the private Hugging Face Hub use this if you want to save the model checkpoints to the hub
+  # hub_model_id=repo_name,
+  # hub_strategy: "all_checkpoints"
+  # save_total_limit: 1
